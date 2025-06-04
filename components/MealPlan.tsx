@@ -26,10 +26,10 @@ export default function MealPlan() {
   if (!meal) return <div className="bg-zinc-800 p-4 rounded-lg">No meal found. Try again!</div>;
 
   return (
-    <div className="bg-white/20 dark:bg-zinc-900/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 ...">
+    <div className="bg-white/20 dark:bg-zinc-900/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 w-full max-w-md mx-auto">
       <h3 className="font-semibold text-lime-400 text-lg mb-2">Suggested Meal</h3>
       <div className="text-white font-bold text-xl mb-1">{meal.title}</div>
-      <img src={meal.image} alt={meal.title} className="rounded-xl w-full max-w-xs" />
+      <img src={meal.image} alt={meal.title} className="rounded-xl w-full max-w-xs mx-auto" />
       <div className="mt-2 text-sm text-zinc-300">
         <strong>Ready in:</strong> {meal.readyInMinutes} min <br />
         <strong>Servings:</strong> {meal.servings} <br />
@@ -38,10 +38,11 @@ export default function MealPlan() {
       <a
         href={meal.sourceUrl}
         target="_blank"
-        className="text-lime-400 mt-2 underline"
+        rel="noopener noreferrer"
+        className="text-lime-400 mt-2 underline block"
       >
         See full recipe
       </a>
     </div>
-  );
-}
+  );  
+}  

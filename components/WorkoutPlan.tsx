@@ -21,7 +21,7 @@ export default function WorkoutPlan() {
   const [geminiResult, setGeminiResult] = useState<string[] | null>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
 
-  // This effect will only run if customStr or hasCustom changes (which they only will if user saves a new workout)
+  // Handle if user saves new workout
   useEffect(() => {
     if (hasCustom) {
       const items = customStr
@@ -55,7 +55,7 @@ export default function WorkoutPlan() {
   }  
 
   return (
-    <div className="bg-zinc-800 p-4 rounded-lg flex flex-col items-start gap-2 w-full min-h-[230px]" >
+    <div className="bg-zinc-800 p-4 rounded-lg flex flex-col items-start gap-2 w-full min-h-[230px]">
       <h3 className="font-semibold text-pink-400 text-lg mb-2">Today's Workout</h3>
       {hasCustom ? (
         <>
@@ -91,12 +91,11 @@ export default function WorkoutPlan() {
       ) : (
         <div>Unable to load workout.</div>
       )}
-      {/* Gemini Recommendation UI */}
       <div className="w-full mt-4">
         <label className="block text-sm mb-2 text-zinc-400">
           Recommend me a workout for today:
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full">
           <select
             value={geminiDropdown}
             onChange={e => setGeminiDropdown(e.target.value)}
@@ -124,5 +123,5 @@ export default function WorkoutPlan() {
         )}
       </div>
     </div>
-  );
+  );  
 }

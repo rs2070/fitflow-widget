@@ -28,7 +28,7 @@ export default function Motivation({ refreshTrigger }: { refreshTrigger: number 
 
   useEffect(() => {
     updateQuote();
-  }, [refreshTrigger]); // <-- important: rerun when logRefresh changes
+  }, [refreshTrigger]); // Rerun when logRefresh changes
 
   return (
     <div className="bg-zinc-800 p-4 rounded-lg flex flex-col gap-2 w-full">
@@ -37,10 +37,10 @@ export default function Motivation({ refreshTrigger }: { refreshTrigger: number 
       <button
         onClick={updateQuote}
         disabled={loading}
-        className="mt-2 px-2 py-1 rounded bg-yellow-400 text-black font-bold self-end"
+        className="mt-2 px-2 py-1 rounded bg-yellow-400 text-black font-bold self-end sm:self-end w-full sm:w-auto"
       >
         {loading ? "Loading..." : "New Quote"}
       </button>
     </div>
-  );
+  );  
 }

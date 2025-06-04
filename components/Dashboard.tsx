@@ -12,7 +12,7 @@ import { Settings, Plus } from "lucide-react";
 import Reminder from "./Reminder";
 
 export default function Dashboard({ onReset }: { onReset: () => void }) {
-  // Add a refresh key for forcing re-mount after editor/settings save!
+  // Add a refresh key for forcing re-mount after editor/settings save
   const [refreshKey, setRefreshKey] = useState(0);
 
   // When you want to "refresh" everything
@@ -56,7 +56,7 @@ export default function Dashboard({ onReset }: { onReset: () => void }) {
     setLogRefresh((x) => x + 1);
   }
 
-  // Updated: use handleReset to trigger UI refresh!
+  // Updated: use handleReset to trigger UI refresh
   function handleWorkoutEditorClose() {
     setShowWorkoutEditor(false);
     handleReset();
@@ -69,8 +69,8 @@ export default function Dashboard({ onReset }: { onReset: () => void }) {
 
   return (
     <div
-      key={refreshKey} // <-- Triggers React to re-render the whole dashboard!
-      className="w-full max-w-lg mx-auto p-2 md:p-4 bg-white/25 dark:bg-zinc-900/80 backdrop-blur-xl rounded-2xl shadow-2xl text-white space-y-4 transition-all duration-300"
+      key={refreshKey}
+      className="w-full max-w-lg mx-auto p-2 sm:p-3 md:p-4 bg-white/25 dark:bg-zinc-900/80 backdrop-blur-xl rounded-2xl shadow-2xl text-white space-y-4 transition-all duration-300"
       style={{
         background:
           "linear-gradient(135deg, rgba(255,255,255,0.19) 0%, rgba(120,139,255,0.08) 100%)",
@@ -78,44 +78,66 @@ export default function Dashboard({ onReset }: { onReset: () => void }) {
         border: "1.5px solid rgba(255,255,255,0.18)",
       }}
     >
-      <div className="flex justify-between items-center">
-        <h2
-          className="text-2xl font-bold"
-          style={{
-            color: "rgba(112, 11, 112, 0.97)",
-            textShadow:
-              ".1px .1px .2px white, 0 0 25px white, 0 0 .1px white",
-          }}
-        >
-          Your FitFlow Dashboard
-        </h2>
+      {/* Header with Logo, Title, and Settings */}
+      <div className="flex justify-between items-center w-full">
+        {/* Image */}
+        <div className="flex items-center gap-2">
+          {/* Logo image */}
+          {/* <img src="/logo.png" alt="Logo" className="w-8 h-8 rounded-full shadow" /> */}
+          <h2
+            className="text-2xl font-bold"
+            style={{
+              color: "rgba(112, 11, 112, 0.97)",
+              textShadow: ".1px .1px .2px white, 0 0 25px white, 0 0 .1px white",
+            }}
+          >
+            Your FitFlow Dashboard
+          </h2>
+        </div>
+        {/* Settings button */}
         <button
           onClick={() => setShowSettings(true)}
-          className="bg-zinc-800 p-2 rounded-full hover:bg-zinc-700"
+          className="bg-zinc-200 dark:bg-zinc-800 p-2 rounded-full hover:bg-zinc-700 shadow transition"
           title="Settings"
+          style={{
+            border: "1.5px solid #eee",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          <Settings size={22} className="text-zinc-200" />
+          <Settings size={22} className="text-zinc-700 dark:text-zinc-200" />
         </button>
         {showSettings && (
           <Onboarding open={showSettings} onComplete={handleSettingsSaved} />
         )}
       </div>
+  
+      {/* Add/WorkoutEditor Button */}
       <div className="flex justify-end mb-2">
         <button
           onClick={() => setShowWorkoutEditor(true)}
           className="bg-lime-500 rounded-full p-2 shadow hover:scale-105 transition"
           title="Edit custom workout plan"
+          style={{
+            border: "1.5px solid #b6f7a0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
           <Plus size={22} className="text-black" />
         </button>
       </div>
-      {/* Pass refresh handler to WorkoutEditor & Onboarding via onClose/onComplete */}
+      {/* WorkoutEditor modal */}
       <WorkoutEditor open={showWorkoutEditor} onClose={handleWorkoutEditorClose} />
-      <div className="grid gap-4 md:grid-cols-2">
+  
+      {/* Grid layout for main content */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         <MealPlan />
         <WorkoutPlan />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         <MoodLog
           onSave={() => setLogRefresh((x) => x + 1)}
           mealsComplete={mealsComplete}
@@ -125,7 +147,9 @@ export default function Dashboard({ onReset }: { onReset: () => void }) {
         <Motivation refreshTrigger={0} />
         <Reminder />
       </div>
-      <div className="flex items-center gap-4">
+  
+      {/* Action buttons */}
+      <div className="flex flex-wrap items-center gap-4 justify-center">
         <button
           onClick={completeMeal}
           disabled={mealsComplete >= maxMeals}
@@ -152,5 +176,5 @@ export default function Dashboard({ onReset }: { onReset: () => void }) {
         </button>
       </div>
     </div>
-  );
-}
+  );  
+}  

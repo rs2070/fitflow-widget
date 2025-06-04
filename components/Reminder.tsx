@@ -43,7 +43,7 @@ function showToast(msg: string) {
     setTimeout(() => { el && (el.style.opacity = "0"); }, 8000);
     setTimeout(() => { el && el.remove(); }, 85000);
   
-    // ---- CHANGE PAGE TITLE HERE ----
+    // CHANGE PAGE TITLE
     const prevTitle = document.title;
     document.title = "🔔 New Notification!";
     setTimeout(() => {
@@ -90,7 +90,7 @@ export default function Reminder() {
         const remaining: typeof remList = [];
         remList.forEach((rem) => {
           if (rem.time === current) {
-            showToast(rem.message); // <-- Always shows in-app, plays sound
+            showToast(rem.message); // Always shows in-app, plays sound
           } else {
             remaining.push(rem);
           }
@@ -122,47 +122,47 @@ export default function Reminder() {
   }
 
   return (
-    <div className="rounded-2xl bg-blue-900/90 p-4 shadow w-full min-w-[200px] max-w-xs space-y-3">
+    <div className="rounded-2xl bg-blue-900/90 p-4 shadow w-full min-w-[160px] max-w-xs mx-auto sm:mx-0 space-y-3">
       <div className="text-blue-200 font-semibold text-md mb-1">Reminder</div>
       <div className="flex flex-col gap-2 w-full">
-        {/* Make each input its own row */}
+        {/* Each input its own row */}
         <div className="flex flex-row w-full">
-            <input
+          <input
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="bg-blue-100 text-blue-900 rounded px-1.5 py-1 w-[200px] text-xs font-medium "
-            />
+            className="bg-blue-100 text-blue-900 rounded px-1.5 py-1 w-full text-xs font-medium"
+          />
         </div>
         <div className="flex flex-row w-full">
-            <input
+          <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Enter your reminder..."
-            className="bg-blue-100 text-blue-900 rounded px-2 py-1 flex-1 text-xs min-w-[120px]"
+            className="bg-blue-100 text-blue-900 rounded px-2 py-1 flex-1 text-xs min-w-[80px]"
             maxLength={45}
             onKeyDown={(e) => {
-                if (e.key === "Enter") addReminder();
+              if (e.key === "Enter") addReminder();
             }}
-            />
+          />
         </div>
         <div className="flex flex-row gap-1 w-full">
-            <button
+          <button
             className="bg-blue-500 hover:bg-blue-600 text-white font-bold rounded px-3 py-1 text-xs"
             onClick={addReminder}
-            >
+          >
             Add
-            </button>
-            <button
+          </button>
+          <button
             className="bg-blue-700 hover:bg-blue-800 text-white font-bold rounded px-2.5 py-1 text-xs"
             onClick={clearReminders}
             title="Clear all reminders"
-            >
+          >
             ×
-            </button>
+          </button>
         </div>
-        </div>
+      </div>
       {error && (
         <div className="text-xs text-yellow-400 font-semibold">{error}</div>
       )}
@@ -188,5 +188,5 @@ export default function Reminder() {
           )}
       </div>
     </div>
-  );
+  );  
 }

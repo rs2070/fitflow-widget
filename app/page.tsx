@@ -24,8 +24,8 @@ export default function Home() {
   }
 
   return (
-  <main className="min-h-screen w-full bg-gradient-to-br from-fuchsia-900/90 via-pink-700/50 to-indigo-900/80 backdrop-blur-[6px]">
-    <Widget />
-  </main>
-  );
+    <main className="min-h-screen w-full bg-gradient-to-br from-fuchsia-900/90 via-pink-700/50 to-indigo-900/80 backdrop-blur-[6px] flex items-center justify-center">
+      <Widget />
+    </main>
+  );  
 }

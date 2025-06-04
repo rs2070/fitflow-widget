@@ -54,10 +54,10 @@ export default function MoodLog({
       </div>
       <button
         onClick={handleSave}
-        className="mt-2 py-1 rounded bg-cyan-400 text-black font-bold"
+        className="mt-2 py-1 rounded bg-cyan-400 text-black font-bold w-full"
       >
         Save Check-in
       </button>
     </div>
-  );
+  );  
 }
