@@ -1,0 +1,1061 @@
+// Dashboard.tsx
+"use client";
+import React, { useState, useEffect } from "react";
+import MealPlan from "./MealPlan";
+import WorkoutPlan from "./WorkoutPlan";
+import MoodLog from "./MoodLog";
+import Motivation from "./Motivation";
+import ProgressLog from "./ProgressLog";
+import WorkoutEditor from "./WorkoutEditor";
+import Onboarding from "./Onboarding";
+import { loadSettings, logDay, getProgress } from "../utils/storage";
+import { Settings, Plus } from "lucide-react";
+import Reminder from "./Reminder";
+
+export default function Dashboard({ onReset }: { onReset: () => void }) {
+  // Add a refresh key for forcing re-mount after editor/settings save!
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // When you want to "refresh" everything
+  function handleReset() {
+    setRefreshKey((k) => k + 1);
+  }
+
+  // Local UI states
+  const [settings, setSettings] = useState(loadSettings());
+  const [showSettings, setShowSettings] = useState(false);
+  const today = new Date().toISOString().split("T")[0];
+  const [mealsComplete, setMealsComplete] = useState(0);
+  const [workoutDone, setWorkoutDone] = useState(false);
+  const [logRefresh, setLogRefresh] = useState(0);
+  const [showWorkoutEditor, setShowWorkoutEditor] = useState(false);
+
+  // Always reload settings when refreshKey changes
+  useEffect(() => {
+    setSettings(loadSettings());
+  }, [refreshKey]);
+
+  const maxMeals = settings?.mealsPerDay || 3;
+
+  function completeMeal() {
+    if (mealsComplete < maxMeals) setMealsComplete((c) => c + 1);
+  }
+
+  function completeWorkout() {
+    setWorkoutDone(true);
+  }
+
+  function saveLog() {
+    const progress = getProgress(today) || {};
+    logDay({
+      date: today,
+      mood: progress.mood,
+      weight: progress.weight,
+      workoutDone,
+      mealsComplete,
+    });
+    setLogRefresh((x) => x + 1);
+  }
+
+  // Updated: use handleReset to trigger UI refresh!
+  function handleWorkoutEditorClose() {
+    setShowWorkoutEditor(false);
+    handleReset();
+  }
+
+  function handleSettingsSaved() {
+    setShowSettings(false);
+    handleReset();
+  }
+
+  return (
+    <div
+      key={refreshKey} // <-- Triggers React to re-render the whole dashboard!
+      className="w-full max-w-lg mx-auto p-2 md:p-4 bg-white/25 dark:bg-zinc-900/80 backdrop-blur-xl rounded-2xl shadow-2xl text-white space-y-4 transition-all duration-300"
+      style={{
+        background:
+          "linear-gradient(135deg, rgba(255,255,255,0.19) 0%, rgba(120,139,255,0.08) 100%)",
+        boxShadow: "0 8px 32px 0 rgba(31,38,135,0.15)",
+        border: "1.5px solid rgba(255,255,255,0.18)",
+      }}
+    >
+      <div className="flex justify-between items-center">
+        <h2
+          className="text-2xl font-bold"
+          style={{
+            color: "rgba(112, 11, 112, 0.97)",
+            textShadow:
+              ".1px .1px .2px white, 0 0 25px white, 0 0 .1px white",
+          }}
+        >
+          Your FitFlow Dashboard
+        </h2>
+        <button
+          onClick={() => setShowSettings(true)}
+          className="bg-zinc-800 p-2 rounded-full hover:bg-zinc-700"
+          title="Settings"
+        >
+          <Settings size={22} className="text-zinc-200" />
+        </button>
+        {showSettings && (
+          <Onboarding open={showSettings} onComplete={handleSettingsSaved} />
+        )}
+      </div>
+      <div className="flex justify-end mb-2">
+        <button
+          onClick={() => setShowWorkoutEditor(true)}
+          className="bg-lime-500 rounded-full p-2 shadow hover:scale-105 transition"
+          title="Edit custom workout plan"
+        >
+          <Plus size={22} className="text-black" />
+        </button>
+      </div>
+      {/* Pass refresh handler to WorkoutEditor & Onboarding via onClose/onComplete */}
+      <WorkoutEditor open={showWorkoutEditor} onClose={handleWorkoutEditorClose} />
+      <div className="grid gap-4 md:grid-cols-2">
+        <MealPlan />
+        <WorkoutPlan />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <MoodLog
+          onSave={() => setLogRefresh((x) => x + 1)}
+          mealsComplete={mealsComplete}
+          workoutDone={workoutDone}
+        />
+        <ProgressLog refreshTrigger={logRefresh} />
+        <Motivation refreshTrigger={0} />
+        <Reminder />
+      </div>
+      <div className="flex items-center gap-4">
+        <button
+          onClick={completeMeal}
+          disabled={mealsComplete >= maxMeals}
+          className={`bg-lime-400 text-black font-bold rounded px-3 py-2 hover:scale-105 ${
+            mealsComplete >= maxMeals ? "opacity-60 cursor-not-allowed" : ""
+          }`}
+        >
+          Complete Meal ({mealsComplete}/{maxMeals})
+        </button>
+        <button
+          onClick={completeWorkout}
+          className={`bg-pink-400 text-black font-bold rounded px-3 py-2 hover:scale-105 ${
+            workoutDone ? "opacity-60" : ""
+          }`}
+          disabled={workoutDone}
+        >
+          {workoutDone ? "Workout Done" : "Complete Workout"}
+        </button>
+        <button
+          onClick={saveLog}
+          className="bg-violet-400 text-black font-bold rounded px-3 py-2 hover:scale-105"
+        >
+          Save Progress
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// MealPlan.tsx
+// /components/MealPlan.tsx
+
+"use client";
+import React, { useEffect, useState } from "react";
+import { fetchRandomMeal } from "../utils/api";
+import { loadSettings } from "../utils/storage";
+import { fetchMealFromGroceries } from "../utils/api";
+
+const settings = loadSettings();
+const groceriesArr = settings?.groceries?.split(",").map((a: string) => a.trim()).filter(Boolean) || [];
+const allergiesArr = settings?.allergies?.split(",").map((a: string) => a.trim()).filter(Boolean) || [];
+
+export default function MealPlan() {
+  const settings = loadSettings();
+  const [meal, setMeal] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchMealFromGroceries(groceriesArr, allergiesArr)
+      .then(m => setMeal(m))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="bg-zinc-800 p-4 rounded-lg">Loading meal plan...</div>;
+  if (!meal) return <div className="bg-zinc-800 p-4 rounded-lg">No meal found. Try again!</div>;
+
+  return (
+    <div className="bg-white/20 dark:bg-zinc-900/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 ...">
+      <h3 className="font-semibold text-lime-400 text-lg mb-2">Suggested Meal</h3>
+      <div className="text-white font-bold text-xl mb-1">{meal.title}</div>
+      <img src={meal.image} alt={meal.title} className="rounded-xl w-full max-w-xs" />
+      <div className="mt-2 text-sm text-zinc-300">
+        <strong>Ready in:</strong> {meal.readyInMinutes} min <br />
+        <strong>Servings:</strong> {meal.servings} <br />
+        <strong>Ingredients:</strong> {meal.extendedIngredients.map((ing: any) => ing.original).join(", ")}
+      </div>
+      <a
+        href={meal.sourceUrl}
+        target="_blank"
+        className="text-lime-400 mt-2 underline"
+      >
+        See full recipe
+      </a>
+    </div>
+  );
+}
+
+// MoodLog.tsx
+"use client";
+import React, { useState } from "react";
+import { saveProgress, getProgress, logDay } from "../utils/storage";
+
+export default function MoodLog({
+  onSave,
+  mealsComplete,
+  workoutDone
+}: {
+  onSave: () => void,
+  mealsComplete: number,
+  workoutDone: boolean
+}) {
+  const today = new Date().toISOString().split("T")[0];
+  const initial = getProgress(today) || { mood: "", weight: "" };
+  const [mood, setMood] = useState(initial.mood || "");
+  const [weight, setWeight] = useState(initial.weight || "");
+
+  function handleSave() {
+    const entry = {
+      date: today,
+      mood,
+      weight,
+      mealsComplete,        // Use the prop, not the stale initial!
+      workoutDone,          // Use the prop!
+    };
+    saveProgress(today, entry);
+    logDay(entry);
+    onSave();
+  }
+
+  return (
+    <div className="bg-zinc-800 p-4 rounded-lg flex flex-col gap-2 w-full">
+      <h3 className="font-semibold text-cyan-400 text-lg mb-2">Today's Check-in</h3>
+      <div>
+        <label className="block mb-1">Mood:</label>
+        <input
+          type="text"
+          value={mood}
+          onChange={e => setMood(e.target.value)}
+          className="w-full rounded bg-zinc-900 border-none p-2"
+          placeholder="How are you feeling?"
+        />
+      </div>
+      <div>
+        <label className="block mb-1">Weight (optional):</label>
+        <input
+          type="number"
+          value={weight}
+          onChange={e => setWeight(e.target.value)}
+          className="w-full rounded bg-zinc-900 border-none p-2"
+          placeholder="lbs"
+        />
+      </div>
+      <button
+        onClick={handleSave}
+        className="mt-2 py-1 rounded bg-cyan-400 text-black font-bold"
+      >
+        Save Check-in
+      </button>
+    </div>
+  );
+}
+
+// Motivation.tsx
+"use client";
+import React, { useEffect, useState } from "react";
+import { fetchMotivationalQuote } from "../utils/api";
+import { getLogs } from "../utils/storage";
+
+export default function Motivation({ refreshTrigger }: { refreshTrigger: number }) {
+  const [quote, setQuote] = useState("Loading...");
+  const [loading, setLoading] = useState(false);
+
+  function getMostRecentMood() {
+    const logs = getLogs();
+    for (let i = 0; i < logs.length; ++i) {
+      const log = logs[i];
+      //console.log(log.mood);
+      if (log.mood && log.mood.trim()) return log.mood.trim();
+    }
+    return "";
+  }
+
+  async function updateQuote() {
+    setLoading(true);
+    const mood = getMostRecentMood();
+    //console.log("🚨 Sending most recent mood to Gemini:", mood);
+    const q = await fetchMotivationalQuote(mood);
+    setQuote(q);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    updateQuote();
+  }, [refreshTrigger]); // <-- important: rerun when logRefresh changes
+
+  return (
+    <div className="bg-zinc-800 p-4 rounded-lg flex flex-col gap-2 w-full">
+      <h3 className="font-semibold text-yellow-400 text-lg mb-2">Motivation</h3>
+      <div className="text-sm text-zinc-200 italic">{quote}</div>
+      <button
+        onClick={updateQuote}
+        disabled={loading}
+        className="mt-2 px-2 py-1 rounded bg-yellow-400 text-black font-bold self-end"
+      >
+        {loading ? "Loading..." : "New Quote"}
+      </button>
+    </div>
+  );
+}
+
+// Onboarding.tsx
+"use client";
+import React, { useState, useEffect } from "react";
+import { saveSettings, loadSettings } from "../utils/storage";
+
+const DEFAULTS = {
+  mealsPerDay: 3,
+  calorieGoal: 2200,
+  workoutType: "full_body",
+  allergies: "",
+  groceries: "",
+};
+
+type Settings = typeof DEFAULTS;
+
+export default function Onboarding({
+  open,
+  onComplete,
+}: {
+  open: boolean;
+  onComplete: () => void;
+}) {
+  const [values, setValues] = useState<Settings>(DEFAULTS);
+
+  // When modal is shown, reload settings
+  useEffect(() => {
+    if (open) {
+      const settings = loadSettings() || DEFAULTS;
+      setValues(settings);
+    }
+  }, [open]);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
+    setValues((v: Settings) => ({ ...v, [name]: value }));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    saveSettings(values);
+    onComplete();
+  }
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+      <div
+        className="backdrop-blur-xl bg-white/30 dark:bg-zinc-900/95 p-8 rounded-2xl w-[92vw] max-w-md scale-75 mb-160 shadow-2xl border border-white/30"
+        style={{
+          boxShadow: "0 8px 32px 0 rgba(31,38,135,0.15)",
+          border: "1.5px solid rgba(255,255,255,0.18)",
+        }}
+      >
+        <h2 className="text-2xl font-bold mb-6 text-center text-lime-300 drop-shadow">
+          Welcome to FitFlow
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block mb-1 text-zinc-200">Meals per day:</label>
+            <input
+              name="mealsPerDay"
+              type="number"
+              value={values.mealsPerDay}
+              onChange={handleChange}
+              min={1}
+              max={6}
+              className="w-full rounded bg-zinc-700 border-none p-2 text-white placeholder:text-zinc-400"
+              required
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-zinc-200">Daily Calorie Goal:</label>
+            <input
+              name="calorieGoal"
+              type="number"
+              value={values.calorieGoal}
+              onChange={handleChange}
+              min={1000}
+              max={6000}
+              className="w-full rounded bg-zinc-700 border-none p-2 text-white placeholder:text-zinc-400"
+              required
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-zinc-200">Workout Type:</label>
+            <select
+              name="workoutType"
+              value={values.workoutType}
+              onChange={handleChange}
+              className="w-full rounded bg-zinc-700 border-none p-2 text-white"
+            >
+              <option value="full_body">Full Body</option>
+              <option value="powerlifting">Powerlifting</option>
+              <option value="bodybuilding">Bodybuilding</option>
+              <option value="cardio">Cardio/HIIT</option>
+            </select>
+          </div>
+          <div>
+            <label className="block mb-1 text-zinc-200">
+              Food allergies or restricted foods (comma separated):
+            </label>
+            <input
+              name="allergies"
+              type="text"
+              value={values.allergies}
+              onChange={handleChange}
+              placeholder="e.g. peanuts, dairy"
+              className="w-full rounded bg-zinc-700 border-none p-2 text-white placeholder:text-zinc-400"
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-zinc-200">
+              Groceries you have (comma separated):
+            </label>
+            <input
+              name="groceries"
+              type="text"
+              value={values.groceries}
+              onChange={handleChange}
+              placeholder="e.g. eggs, chicken, rice"
+              className="w-full rounded bg-zinc-700 border-none p-2 text-white placeholder:text-zinc-400"
+            />
+          </div>
+          <button
+            type="submit"
+            className="mt-4 w-full py-2 rounded-lg bg-gradient-to-r from-lime-400 to-green-500 text-black font-bold hover:scale-105 transition"
+          >
+            Save & Start
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ProgressLog.tsx
+"use client";
+import React, { useEffect, useState } from "react";
+import { getLogs } from "../utils/storage";
+
+export default function ProgressLog({ refreshTrigger }: { refreshTrigger: number }) {
+  const [logs, setLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    setLogs(getLogs());
+  }, [refreshTrigger]);
+
+  if (!logs.length) return <div className="bg-zinc-800 p-4 rounded-lg">No progress logged yet.</div>;
+
+  return (
+    <div className="bg-zinc-800 p-4 rounded-lg w-full">
+      <h3 className="font-semibold text-violet-400 text-lg mb-2">Recent Progress</h3>
+      <ul className="space-y-2">
+        {logs.slice(0, 5).map((entry, i) => (
+          <li key={i} className="border-b border-zinc-700 pb-2">
+            <div className="text-sm text-zinc-300">{entry.date}</div>
+            <div className="text-xs text-zinc-400">Mood: {entry.mood} | Weight: {entry.weight}</div>
+            <div className="text-xs text-zinc-400">Workout done: {entry.workoutDone ? "Yes" : "No"}</div>
+            <div className="text-xs text-zinc-400">Meals complete: {entry.mealsComplete || 0}</div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Reminder.tsx
+"use client";
+import React, { useState, useEffect } from "react";
+
+// Simple toast for notifications
+function showToast(msg: string) {
+    // Native Notification if possible
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        new window.Notification("FitFlow Reminder", {
+          body: msg,
+          icon: "/favicon.ico",
+          tag: "fitflow-reminder",
+        });
+      } catch {}
+    }
+    // In-app fallback (top center, white bubble, blue text)
+    const id = "fitflow-toast";
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement("div");
+      el.id = id;
+      document.body.appendChild(el);
+    }
+    el.innerText = `🚨 REMINDER 🚨 -> ${msg}`;
+    el.style.cssText = `
+      position: fixed;
+      top: 30px; left: 50%; transform: translateX(-50%);
+      z-index: 9999;
+      background: #fff;
+      color: #2563eb; /* Tailwind blue-600 */
+      border: 1.5px solid #3b82f6;
+      padding: 12px 28px; border-radius: 18px;
+      font-size: 1rem; font-weight: 700; letter-spacing: 0.01em;
+      box-shadow: 0 8px 28px 0 rgba(30, 58, 138, 0.09);
+      opacity: 0.97;
+      transition: opacity 0.22s;
+      text-align: center;
+      pointer-events: none;
+    `;
+    // Play sound
+    const audio = new Audio("https://notificationsounds.com/storage/sounds/file-sounds-1150-pristine.mp3");
+    audio.play();
+    setTimeout(() => { el && (el.style.opacity = "0"); }, 8000);
+    setTimeout(() => { el && el.remove(); }, 85000);
+  
+    // ---- CHANGE PAGE TITLE HERE ----
+    const prevTitle = document.title;
+    document.title = "🔔 New Notification!";
+    setTimeout(() => {
+      document.title = prevTitle;
+    }, 10000);
+  }  
+
+// Time helper
+function getCurrentHHMM() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2, "0");
+  const m = now.getMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+export default function Reminder() {
+  const [reminders, setReminders] = useState<{ time: string; message: string }[]>([]);
+  const [time, setTime] = useState("");
+  const [message, setMessage] = useState("");
+  const [notifStatus, setNotifStatus] = useState<NotificationPermission>(
+    typeof window !== "undefined" && "Notification" in window
+      ? Notification.permission
+      : "default"
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  // Request permission on mount (for native notifications)
+  useEffect(() => {
+    if ("Notification" in window) {
+      setNotifStatus(Notification.permission);
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((status) => {
+          setNotifStatus(status);
+        });
+      }
+    }
+  }, []);
+
+  // Check reminders
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const current = getCurrentHHMM();
+      setReminders((remList) => {
+        const remaining: typeof remList = [];
+        remList.forEach((rem) => {
+          if (rem.time === current) {
+            showToast(rem.message); // <-- Always shows in-app, plays sound
+          } else {
+            remaining.push(rem);
+          }
+        });
+        return remaining;
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  function addReminder() {
+    if (!time || !message.trim()) {
+      setError("Enter both time and message");
+      return;
+    }
+    setReminders((list) => [
+      ...list,
+      { time, message: message.trim() },
+    ]);
+    setTime("");
+    setMessage("");
+    setError(null);
+  }
+
+  function clearReminders() {
+    const audio = new Audio("https://notificationsounds.com/storage/sounds/file-sounds-1150-pristine.mp3");
+    audio.play();
+    setReminders([]);
+  }
+
+  return (
+    <div className="rounded-2xl bg-blue-900/90 p-4 shadow w-full min-w-[200px] max-w-xs space-y-3">
+      <div className="text-blue-200 font-semibold text-md mb-1">Reminder</div>
+      <div className="flex flex-col gap-2 w-full">
+        {/* Make each input its own row */}
+        <div className="flex flex-row w-full">
+            <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            className="bg-blue-100 text-blue-900 rounded px-1.5 py-1 w-[200px] text-xs font-medium "
+            />
+        </div>
+        <div className="flex flex-row w-full">
+            <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Enter your reminder..."
+            className="bg-blue-100 text-blue-900 rounded px-2 py-1 flex-1 text-xs min-w-[120px]"
+            maxLength={45}
+            onKeyDown={(e) => {
+                if (e.key === "Enter") addReminder();
+            }}
+            />
+        </div>
+        <div className="flex flex-row gap-1 w-full">
+            <button
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold rounded px-3 py-1 text-xs"
+            onClick={addReminder}
+            >
+            Add
+            </button>
+            <button
+            className="bg-blue-700 hover:bg-blue-800 text-white font-bold rounded px-2.5 py-1 text-xs"
+            onClick={clearReminders}
+            title="Clear all reminders"
+            >
+            ×
+            </button>
+        </div>
+        </div>
+      {error && (
+        <div className="text-xs text-yellow-400 font-semibold">{error}</div>
+      )}
+      {notifStatus !== "granted" && (
+        <div className="text-xs text-yellow-400 mt-1">
+          <b>Enable browser notifications</b> for reminders!
+        </div>
+      )}
+      <div className="text-xs text-blue-200 mt-1">
+        {reminders.length === 0
+          ? <span className="italic opacity-70">No reminders set.</span>
+          : (
+            <ul className="space-y-1">
+              {reminders.map((r, i) => (
+                <li key={i} className="flex gap-2 items-center">
+                  <span className="font-mono bg-blue-800/50 rounded px-1">
+                    {r.time}
+                  </span>
+                  <span>{r.message}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+      </div>
+    </div>
+  );
+}
+
+// Widget.tsx
+"use client";
+import React, { useState, useMemo } from "react";
+import { motion, useDragControls, AnimatePresence } from "framer-motion";
+import {
+  Soup, Dumbbell, Smile, BarChart2, Sparkles,
+  ChevronDown, ChevronUp, Move
+} from "lucide-react";
+import Dashboard from "./Dashboard";
+import { getLogs } from "../utils/storage";
+
+export default function Widget() {
+  const [expanded, setExpanded] = useState(false);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const dragControls = useDragControls();
+
+  // Compute workout count (memoized for perf)
+  const totalWorkoutsDone = useMemo(() => {
+    try {
+      const logs = getLogs();
+      return logs.filter((log: any) => log.workoutDone).length;
+    } catch {
+      return 0;
+    }
+  }, []); // <-- add dependencies if you want live updates
+
+  // Config with summary - put it INSIDE the component, so you can access values above
+  const ICONS = [
+    {
+      icon: Soup,
+      color: "text-lime-400",
+      label: "Meal",
+      summary: "Try today’s meal suggestion!",
+    },
+    {
+      icon: Dumbbell,
+      color: "text-pink-400",
+      label: "Workout",
+      summary: "Full body up next",
+    },
+    {
+      icon: Smile,
+      color: "text-cyan-400",
+      label: "Check-in",
+      summary: "Mood not logged",
+    },
+    {
+      icon: BarChart2,
+      color: "text-violet-400",
+      label: "Progress",
+      summary: `Total workouts done: ${totalWorkoutsDone}`,
+    },
+    {
+      icon: Sparkles,
+      color: "text-yellow-400",
+      label: "Motivation",
+      summary: "Get inspired today!",
+    },
+  ];
+
+  // Sizing for widgets
+  const widgetWidth = expanded
+    ? "w-[40vw] max-w-xl min-w-[340px]"
+    : "w-[490px] h-[60px]";
+  const widgetHeight = expanded ? "min-h-[420px]" : "h-[60px]";
+
+  return (
+    <motion.div
+    drag
+    dragControls={dragControls}
+    dragListener={false}
+    dragMomentum={false}
+    dragElastic={0}
+    dragTransition={{ power: 0.08, timeConstant: 90, restDelta: 0.5 }}
+      className={`
+        fixed z-50 left-8 top-12
+        ${widgetWidth} ${widgetHeight}
+        rounded-3xl shadow-2xl
+        bg-white/30 dark:bg-zinc-900/80
+        backdrop-blur-xl border border-white/40 dark:border-zinc-800/60
+        transition-all duration-300
+        cursor-default select-none
+      `}
+      style={{
+        fontFamily: "var(--font-geist-sans), Inter, Arial, Helvetica, sans-serif",
+        background: "linear-gradient(135deg, rgba(255,255,255,0.19) 0%, rgba(120,139,255,0.08) 100%)"
+      }}
+    >
+      {/* Top bar with drag handle and icons */}
+      <div className="flex items-center px-2 pt-2 gap-2 relative">
+        {/* Move handle */}
+        <button
+          className="p-1.5 rounded-full hover:bg-zinc-700 bg-transparent cursor-grab active:cursor-grabbing"
+          style={{ marginRight: 8 }}
+          title="Move widget"
+          onPointerDown={(e) => dragControls.start(e)}
+        >
+          <Move size={18} className="text-zinc-500" />
+        </button>
+        {/* FitFlow Title */}
+        <div className="font-bold text-[15px] ml-1 mr-2 text-zinc-900 dark:text-white tracking-wide select-none">
+          FitFlow
+        </div>
+        {/* Colored Icons with hover tooltips */}
+        <div className="flex flex-row gap-8 ml-2">
+          {ICONS.map(({ icon: Icon, color, label, summary }, idx) => (
+            <div
+              key={label}
+              className={`
+                relative rounded-full p-1.5 bg-white/30 dark:bg-zinc-800/80 shadow
+                hover:scale-110 hover:bg-white/50 dark:hover:bg-zinc-700 transition-all
+                ${color}
+              `}
+              title={label}
+              style={{ marginLeft: idx === 0 ? 4 : 0 }}
+              onMouseEnter={() => setHoveredIdx(idx)}
+              onMouseLeave={() => setHoveredIdx(null)}
+            >
+              <Icon size={19} />
+              {/* Tooltip */}
+              <AnimatePresence>
+                {hoveredIdx === idx && (
+                  <motion.div
+                    key="tooltip"
+                    initial={{ opacity: 0, y: -12, scale: 0.95 }}
+                    animate={{ opacity: 1, y: -28, scale: 1 }}
+                    exit={{ opacity: 0, y: -12, scale: 0.95 }}
+                    transition={{ type: "spring", duration: 0.22 }}
+                    className="absolute left-1/2 -translate-x-1/2 -top-2 z-50"
+                  >
+                    <div
+                      className={`
+                        px-3 py-1 rounded-xl shadow
+                        bg-gray-100/90 text-blue-700 font-semibold
+                        text-[11px] leading-tight min-w-[90px] text-center border border-blue-300
+                      `}
+                      style={{
+                        filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.09))",
+                        letterSpacing: 0.02,
+                      }}
+                    >
+                      {summary || "Loading..."}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </div>
+        {/* Collapse/expand arrow */}
+        <motion.button
+          whileHover={{ scale: 1.09, rotate: 90 }}
+          whileTap={{ scale: 0.95 }}
+          className="ml-auto rounded-full bg-white/60 dark:bg-zinc-700 p-1.5 shadow"
+          style={{ marginRight: 2 }}
+          onClick={() => setExpanded((v) => !v)}
+          aria-label={expanded ? "Collapse" : "Expand"}
+        >
+          {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </motion.button>
+      </div>
+      {/* Main content area */}
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            key="expanded"
+            initial={{ opacity: 0, scale: 0.96, y: 22 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 24 }}
+            transition={{ type: "spring", duration: 0.25 }}
+            className="p-2 md:p-3"
+          >
+            <DashboardWidget />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// --- Dashboard in expanded view, fit inside widget ---
+function DashboardWidget() {
+    return (
+      <div className="w-full max-w-xl mx-auto max-h-[70vh] overflow-y-auto">
+        <Dashboard onReset={() => {}} />
+      </div>
+    );
+  }
+  
+
+// WorkoutEditor.tsx
+"use client";
+import React, { useState } from "react";
+import { saveSettings, loadSettings } from "../utils/storage";
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+export default function WorkoutEditor({ open, onClose }: { open: boolean, onClose: () => void }) {
+  if (!open) return null;
+  const existing = loadSettings()?.weeklyWorkouts || {};
+  const [plan, setPlan] = useState<{ [day: string]: string }>({ ...existing });
+
+  function handleChange(day: string, value: string) {
+    setPlan(p => ({ ...p, [day]: value }));
+  }
+
+  function handleSave() {
+    const settings = loadSettings() || {};
+    settings.weeklyWorkouts = plan;
+    saveSettings(settings);
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/10 backdrop-blur-sm flex items-center justify-center z-50">
+  <div
+    className="backdrop-blur-xl bg-white/30 dark:bg-zinc-900/100 p-8 rounded-2xl w-[92vw] max-w-xl scale-60 mb-160 shadow-2xl border border-white/30"
+    style={{
+      boxShadow: "0 8px 32px 0 rgba(31,38,135,0.15)",
+      border: "1.5px solid rgba(255,255,255,0.18)"
+    }}
+  >
+        <h3 className="text-white text-xl mb-4">Edit Weekly Workout Plan</h3>
+        <div className="space-y-2">
+          {DAYS.map(day => (
+            <div key={day}>
+              <label className="text-white">{day}</label>
+              <textarea
+                className="w-full rounded bg-zinc-600 border-none p-2 mt-1"
+                value={plan[day] || ""}
+                rows={2}
+                placeholder="e.g. 4x10 bench press, 3x8 deadlift, etc."
+                onChange={e => handleChange(day, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2 mt-6">
+          <button onClick={handleSave} className="flex-1 py-2 bg-lime-400 rounded font-bold">
+            Save Plan
+          </button>
+          <button onClick={onClose} className="flex-1 py-2 bg-zinc-700 rounded text-white">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// WorkoutPlan.tsx
+"use client";
+import React, { useEffect, useState } from "react";
+import { fetchWorkout, fetchGeminiWorkout } from "../utils/api";
+import { loadSettings } from "../utils/storage";
+
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export default function WorkoutPlan() {
+  // Only call loadSettings ONCE when component mounts!
+  const [settings] = useState(() => loadSettings());
+  const todayIdx = new Date().getDay();
+  const weeklyWorkouts = settings?.weeklyWorkouts || {};
+  const customStr = (weeklyWorkouts[DAYS[todayIdx]] ?? "").trim();
+  const hasCustom = !!customStr;
+
+  const [customExercises, setCustomExercises] = useState<string[]>([]);
+  const [workout, setWorkout] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const [geminiDropdown, setGeminiDropdown] = useState("push");
+  const [geminiResult, setGeminiResult] = useState<string[] | null>(null);
+  const [geminiLoading, setGeminiLoading] = useState(false);
+
+  // This effect will only run if customStr or hasCustom changes (which they only will if user saves a new workout)
+  useEffect(() => {
+    if (hasCustom) {
+      const items = customStr
+        .split(/,|\n/)
+        .map((x: string) => x.trim())
+        .filter(Boolean);
+      setCustomExercises(items);
+    } else {
+      setCustomExercises([]);
+    }
+  }, [customStr, hasCustom]);
+
+  // Only fetch workout if not custom
+  useEffect(() => {
+    if (!hasCustom) {
+      setLoading(true);
+      fetchWorkout(settings?.workoutType)
+        .then(setWorkout)
+        .finally(() => setLoading(false));
+    }
+  }, [settings, hasCustom]);
+
+  // Gemini AI recommendation handler
+  async function handleGeminiRecommend() {
+    setGeminiLoading(true);
+    setGeminiResult(null);
+    const resp = await fetchGeminiWorkout(geminiDropdown);
+    console.log("Gemini response for", geminiDropdown, ":", resp); // DEBUG
+    setGeminiResult(resp);
+    setGeminiLoading(false);
+  }  
+
+  return (
+    <div className="bg-zinc-800 p-4 rounded-lg flex flex-col items-start gap-2 w-full min-h-[230px]" >
+      <h3 className="font-semibold text-pink-400 text-lg mb-2">Today's Workout</h3>
+      {hasCustom ? (
+        <>
+          <div className="text-white font-bold text-xl mb-1">Your Custom Workout ({DAYS[todayIdx]})</div>
+          <ul className="list-disc pl-6">
+            {customExercises.map((item, idx) => (
+              <li key={idx} className="text-zinc-300">{item}</li>
+            ))}
+          </ul>
+        </>
+      ) : loading ? (
+        <div>Loading workout...</div>
+      ) : workout ? (
+        <>
+          <div className="text-white font-bold text-xl mb-1">Exercise Plan</div>
+          <div className="text-sm text-zinc-300 mb-1">
+            <strong>Duration:</strong> {workout.duration} minutes
+          </div>
+          <div className="text-sm text-zinc-300">
+            <strong>Exercises:</strong>
+            <ul className="list-disc pl-6">
+              {workout.exercises.map((ex: any, i: number) => (
+                <li key={i}>
+                  {ex.name} — {ex.sets}x{ex.reps}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="text-xs text-zinc-400 mt-2">
+            Muscle groups: {workout.muscleGroups.join(", ")}
+          </div>
+        </>
+      ) : (
+        <div>Unable to load workout.</div>
+      )}
+      {/* Gemini Recommendation UI */}
+      <div className="w-full mt-4">
+        <label className="block text-sm mb-2 text-zinc-400">
+          Recommend me a workout for today:
+        </label>
+        <div className="flex gap-2">
+          <select
+            value={geminiDropdown}
+            onChange={e => setGeminiDropdown(e.target.value)}
+            className="rounded bg-zinc-900 border-none px-2 py-1 text-white"
+          >
+            <option value="push">Push</option>
+            <option value="pull">Pull</option>
+            <option value="legs">Legs</option>
+            <option value="core">Core</option>
+          </select>
+          <button
+            className="bg-cyan-400 text-black rounded px-3 py-1 font-bold"
+            onClick={handleGeminiRecommend}
+            disabled={geminiLoading}
+          >
+            {geminiLoading ? "Loading..." : "Recommend"}
+          </button>
+        </div>
+        {geminiResult && (
+          <ul className="list-disc pl-6 mt-2">
+            {geminiResult.map((line, idx) => (
+              <li key={idx} className="text-cyan-200">{line}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
