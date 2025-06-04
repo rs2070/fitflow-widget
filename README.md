@@ -33,3 +33,8 @@
 - Fully responsive and PWA-ready for desktop and mobile  
 - Quick setup: clone repo, run `npm install` and `npm run dev` to launch locally  
 
+---
+
+## Deployment
+
+- Deployed on Vercel at: https://fitflow-widget-22r5.vercel.app/
