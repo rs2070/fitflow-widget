@@ -1,4 +1,4 @@
-![FitFlow Screenshot](https://i.imgur.com/tycEfXn.png)
+![FitFlow Screenshot](https://i.imgur.com/uK6bLll.png)
 
 # FitFlow
 
